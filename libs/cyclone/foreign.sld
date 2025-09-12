@@ -17,6 +17,7 @@
    make-opaque
    
    c-code
+   c-include
    c-value
    c-define
    c->scm
@@ -80,6 +81,13 @@
           (cdr expr))
          `(Cyc-foreign-code ,@(cdr expr)))))
 
+	(define-syntax c-include
+	  (er-macro-transformer
+	   (lambda (form rename id=?)
+		 (let* ((inclusions (map (lambda (name) (string-append "#include \"" name ".h\"\n")) (cdr form)))
+				(include-chain (apply string-append inclusions)))
+		   `(Cyc-foreign-code ,include-chain)))))
+	
     ;; Unbox scheme object
     ;;
     ;; scm->c :: string -> symbol -> string

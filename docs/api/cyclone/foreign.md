@@ -5,6 +5,7 @@ The `(cyclone foreign)` provides a convenient interface for integrating with C c
 # API
 
 - [`c-code`](#c-code)
+- [`c-include`](#c-include)
 - [`c-value`](#c-value)
 - [`c-define`](#c-define)
 - [`c-define-type`](#c-define-type)
@@ -19,6 +20,14 @@ The `(cyclone foreign)` provides a convenient interface for integrating with C c
     (c-code CODE ...)
 
 Insert C code directly into the compiled program. Each `CODE` parameter must be a string containing C code.
+
+## c-include
+
+*Syntax*
+
+	(c-include INCLUSION ...)
+
+A system for including C libraries for use throughout a C-FFI source. `INCLUSION` is the name (sans `.h`) of the header file to include.
 
 ## c-value
 
