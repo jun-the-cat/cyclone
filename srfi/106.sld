@@ -15,6 +15,7 @@
   (include-c-header "<netdb.h>")
   (include-c-header "<unistd.h>")
   (include-c-header "<errno.h>")
+  (include-c-header "<poll.h>")
   (import (scheme base) (scheme cxr))
   (export
       make-client-socket make-server-socket socket?
@@ -158,6 +159,9 @@
                 // perror(\"socket\");
                 continue;
             }
+
+            // Ensure SO_REUSEADDR is active, simplifies a lot of things.
+            setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
         
             if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
                 close(sockfd);
@@ -181,30 +185,34 @@
         return_closcall1(data, k, obj_int2obj(sockfd)); ")
 
     ;; See: http://beej.us/guide/bgnet/output/html/singlepage/bgnet.html#accept
-    (define (socket-accept sock)
+    (define (socket-accept sock . opts)
       (when (not (socket? sock))
         (error "Expected socket but received" sock))
 
-      (let ((sockfd (%socket-accept (socket->fd sock))))
-        (if (= sockfd -1)
-            (error "An error occurred accepting a socket connection")
-            (cons *socket-object-type* sockfd))))
+      (let* ((block? (if (pair? opts) (car opts) #t))
+			 (sockfd (%socket-accept (socket->fd sock) block?)))
+		(cond
+		 ((eq? sockfd #f) sockfd)
+		 ((= sockfd -1)   (error "An error occurred accepting a socket connection"))
+		 (else            (cons *socket-object-type* sockfd)))))
 
     (define-c %socket-accept
-      "(void *data, int argc, closure _, object k, object sockfd)"
-      " int new_fd;
+      "(void *data, int argc, closure _, object k, object sockfd, object should_block)"
+      " int new_fd, serv_fd = obj_obj2int(sockfd);
         struct sockaddr_storage their_addr;
         socklen_t addr_size;
         addr_size = sizeof(their_addr);
+        struct pollfd fds = { serv_fd, POLLIN, 0 };
 
-        set_thread_blocked(data, k);
-        errno = 0;
-        new_fd = accept(obj_obj2int(sockfd), (struct sockaddr *)&their_addr, &addr_size);
-        //if (new_fd < 0){
-        //  // TODO: not so good. maybe we should build a string and send that if an error occurs
-        //  fprintf(stderr, \"errno = %d\\n\", errno);
-        //}
-        return_thread_runnable(data, obj_int2obj(new_fd)); ")
+        if (should_block == boolean_f && poll(&fds, 1, 0) == 0) {
+            return_closcall1(data, k, boolean_f);
+        }
+        else {
+            set_thread_blocked(data, k);
+            errno = 0;
+            new_fd = accept(serv_fd, (struct sockaddr *)&their_addr, &addr_size);
+            return_thread_runnable(data, obj_int2obj(new_fd));
+        }")
 
     (define (socket-send sock bv . opts)
       (let ((flags 0))
