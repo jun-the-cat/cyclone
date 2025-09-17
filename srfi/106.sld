@@ -413,6 +413,7 @@
     (make-const msg-peek       "MSG_PEEK"      )
     (make-const msg-oob        "MSG_OOB"       )
     (make-const msg-waitall    "MSG_WAITALL"   )
+	(make-const msg-dontwait   "MSG_DONTWAIT"  )
     (make-const shut-rd        "SHUT_RD"       )
     (make-const shut-wr        "SHUT_WR"       )
     (make-const shut-rdwr      "SHUT_RDWR"     )
