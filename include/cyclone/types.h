@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <dlfcn.h>
 #include "cyclone/bignum.h"
+#include "cyclone/rational.h"
 
 #ifdef CYC_HIGH_RES_TIMERS
 /**
@@ -52,7 +53,7 @@ enum object_tag {
       11, integer_tag = 12, bignum_tag = 13, mutex_tag = 14, pair_tag =
       15, port_tag = 16, primitive_tag = 17, string_tag = 18, symbol_tag =
       19, vector_tag = 20, complex_num_tag = 21, atomic_tag = 22, void_tag =
-      23, record_tag = 24
+      23, record_tag = 24, rational_num_tag = 25
 };
 
 /**
@@ -820,6 +821,36 @@ typedef struct {
 }
 
 /**
+ * @brief Exact rational number of unlimited precision.
+ */
+typedef struct {
+	gc_header_type hdr;
+	tag_type tag;
+	rational fraction;
+} rational_num_type;
+
+/** Create a new rational number in the nursery */
+#define make_rational_num(v, n, d) \
+	rational_num_type v; \
+	n.hdr.mark = gc_color_red; \
+	n.hdr.grayed = 0; \
+	n.tag = rational_num_tag; \
+	n.value = rational_of(&(n), &(d));
+
+#define alloca_rational_num(v, n, d) \
+	rational_num_type *v = alloca(sizeof(rational_num_type)); \
+	n->hdr.mark = gc_color_red; \
+	n->hdr.grayed = 0; \
+	n->tag = rational_num_tag; \
+	n->value = rational_of(&(n), &(d));
+
+#define assign_rational_num(pobj, v) \
+	((rational_num_type *) pobj)->hdr.mark = gc_color_red; \
+	((rational_num_type *) pobj)->hdr.grayed = 0; \
+	((rational_num_type *) pobj)->tag = rational_num_tag; \
+	rational_num_value(pobj) = v;
+
+/**
  * @brief Complex number
  */
 typedef struct {
@@ -890,6 +921,9 @@ typedef struct {
 
 /** Access a bignum's `mp_int` directly */
 #define bignum_value(x) (((bignum_type *) x)->bn)
+
+/** Access a rational number's value directly */
+#define rational_num_value(x) (((rational_num_type *) x)->fraction)
 
 /** Access the complex number directly */
 #define complex_num_value(x) (((complex_num_type *) x)->value)

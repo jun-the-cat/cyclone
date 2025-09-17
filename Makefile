@@ -211,6 +211,9 @@ gc.o : gc.c $(HEADERS)
 	$(CCOMP) -std=gnu99 -c $< -o $@
 
 ffi.o : ffi.c $(HEADERS)
+	$(CCOMP) -Iinclude -c $< -o $@
+
+rational.o: rational.c $(HEADERS)
 	$(CCOMP) -c $< -o $@
 
 mstreams.o : mstreams.c $(HEADERS)
@@ -240,7 +243,7 @@ runtime.o : runtime.c $(HEADERS)
 					-DCYC_PLATFORM=\"$(PLATFORM)\" \
 					$< -o $@
 
-libcyclone.a : runtime.o gc.o ffi.o mstreams.o hashset.o
+libcyclone.a : runtime.o rational.o gc.o ffi.o mstreams.o hashset.o
 	$(CREATE_LIBRARY_COMMAND) $(CREATE_LIBRARY_FLAGS) $@ $&
 	$(RANLIB_COMMAND)
 # Instructions from: http://www.adp-gmbh.ch/cpp/gcc/create_lib.html

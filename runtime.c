@@ -36,32 +36,33 @@ static void Cyc_cancel_thread(gc_thread_data * thd);
 /* Error checking section - type mismatch, num args, etc */
 /* Type names to use for error messages */
 const char *tag_names[] = {
-  /*closure0_tag  */ "procedure"
-      /*closure1_tag  */ , "procedure"
-      /*closureN_tag  */ , "procedure"
-      /*macro_tag     */ , "macro"
-      /*boolean_tag   */ , "boolean"
-      /*bytevector_tag */ , "bytevector"
-      /*c_opaque_tag  */ , "opaque"
-      /*cond_var_tag  */ , "condition variable"
-      /*cvar_tag      */ , "C primitive"
-      /*double_tag    */ , "double"
-      /*eof_tag       */ , "eof"
-      /*forward_tag   */ , ""
-      /*integer_tag   */ , "number"
-      /*bignum_tag    */ , "bignum"
-      /*mutex_tag     */ , "mutex"
-      /*pair_tag      */ , "pair"
-      /*port_tag      */ , "port"
-      /*primitive_tag */ , "primitive"
-      /*string_tag    */ , "string"
-      /*symbol_tag    */ , "symbol"
-      /*vector_tag    */ , "vector"
-      /*complex_num_tag */ , "complex number"
-      /*atomic_tag */ , "atomic"
-      /*void_tag */ , "void"
-      /*record_tag */ , "record"
-  , "Reserved for future use"
+    /*closure0_tag     */   "procedure"
+	/*closure1_tag     */ , "procedure"
+	/*closureN_tag     */ , "procedure"
+	/*macro_tag        */ , "macro"
+	/*boolean_tag      */ , "boolean"
+	/*bytevector_tag   */ , "bytevector"
+	/*c_opaque_tag     */ , "opaque"
+	/*cond_var_tag     */ , "condition variable"
+	/*cvar_tag         */ , "C primitive"
+	/*double_tag       */ , "double"
+	/*eof_tag          */ , "eof"
+	/*forward_tag      */ , ""
+	/*integer_tag      */ , "number"
+	/*bignum_tag       */ , "bignum"
+	/*mutex_tag        */ , "mutex"
+	/*pair_tag         */ , "pair"
+	/*port_tag         */ , "port"
+	/*primitive_tag    */ , "primitive"
+	/*string_tag       */ , "string"
+	/*symbol_tag       */ , "symbol"
+	/*vector_tag       */ , "vector"
+	/*complex_num_tag  */ , "complex number"
+	/*atomic_tag       */ , "atomic"
+	/*void_tag         */ , "void"
+	/*record_tag       */ , "record"
+	/*rational_num_tag */ , "rational number"
+	                      , "Reserved for future use"
 };
 
 void Cyc_invalid_type_error(void *data, int tag, object found)
@@ -1233,6 +1234,30 @@ object _Cyc_display(void *data, object x, FILE * port, int depth)
       }
       break;
     }
+  case rational_num_tag:{
+	  int      n_bufsz, d_bufsz;
+	  char    *n_buf,  *d_buf;
+	  size_t   written;
+	  rational value = rational_num_value(x);
+
+	  BIGNUM_CALL(mp_radix_size(&value.numerator, 10, &n_bufsz));
+	  BIGNUM_CALL(mp_radix_size(&value.denominator, 10, &d_bufsz));
+
+	  n_buf = alloca(n_bufsz);
+	  d_buf = alloca(d_bufsz);
+	  if (mp_to_radix(&value.numerator, n_buf, n_bufsz, &written, 10) != 0) {
+		fprintf(port, "Error displaying rational numerator!");
+        exit(1);
+      }
+	  
+	  if (mp_to_radix(&value.denominator, d_buf, d_bufsz, &written, 10) != 0) {
+		fprintf(port, "Error displaying rational denominator!");
+        exit(1);
+      }
+
+	  fprintf(port, "%s/%s", n_buf, d_buf);
+	  break;
+    }
   default:
     fprintf(port, "Cyc_display: bad tag x=%d\n", ((closure) x)->tag);
     exit(1);
@@ -2053,9 +2078,20 @@ object Cyc_is_number(object o)
                                         && (type_of(o) == integer_tag
                                             || type_of(o) == bignum_tag
                                             || type_of(o) == double_tag
-                                            || type_of(o) == complex_num_tag))))
+                                            || type_of(o) == complex_num_tag
+											|| type_of(o) == rational_num_tag))))
     return boolean_t;
   return boolean_f;
+}
+
+object Cyc_is_rational(object o)
+{
+	if ((o != NULL) && (obj_is_int(o) || (!is_value_type(o)
+										  && (type_of(o) == integer_tag
+											  || type_of(o) == bignum_tag
+											  || type_of(o) == rational_num_tag))))
+		return boolean_t;
+	return boolean_f;
 }
 
 object Cyc_is_real(object o)
@@ -2687,19 +2723,19 @@ int str_is_bignum(str2int_errno errnum, char *c)
  * @return double Return number as double, since cyclone does
  *                not support a rational number type at this time
  */
-double string2rational(void *data, char *s)
+rational string2rational(void *data, char *s)
 {
   // Duplicate string so we can safely create separate strings
   // for numerator and denominator
   char *nom = _strdup(s);
   if (nom == NULL) {
-    return 0.0;
+	  return rational_zero();
   }
 
   char *denom = strchr(nom, '/');
   if (denom == NULL) {
-    // Should never happen since we check for '/' elsewhere
-    return 0.0;
+	  // Should never happen since we check for '/' elsewhere
+	  return rational_zero();
   }
   denom[0] = '\0';
   denom++;
@@ -2719,9 +2755,7 @@ double string2rational(void *data, char *s)
   free(nom);
 
   // Compute final result as double
-  double x = mp_get_double(&bignum_value(bn_nom));
-  double y = mp_get_double(&bignum_value(bn_denom));
-  return x / y;
+  return rational_of(&bignum_value(bn_nom), &bignum_value(bn_denom));
 }
 
 object Cyc_string2number_(void *data, object cont, object str)
@@ -2741,8 +2775,9 @@ object Cyc_string2number_(void *data, object cont, object str)
                // bignum, so in that case do one more scan
                ((rv == STR2INT_OVERFLOW || rv == STR2INT_UNDERFLOW) &&
                 strchr(s, '/') != NULL)) {
-      double d = string2rational(data, s);
-      make_double(result, d);
+      rational d = string2rational(data, s);
+	  rational_num_type result;
+	  assign_rational_num(&result, d);
       _return_closcall1(data, cont, &result);
     } else if (str_is_bignum(rv, s)) {
       alloc_bignum(data, bn);
@@ -6369,6 +6404,11 @@ static char *gc_move(char *obj, gc_thread_data * thd, int *alloci,
       complex_num_type *hp =
           gc_alloc(heap, sizeof(complex_num_type), obj, thd, heap_grown);
       return gc_fixup_moved_obj(thd, alloci, obj, hp);
+    }
+  case rational_num_tag:{
+	  rational_num_type *hp =
+		  gc_alloc(heap, sizeof(rational_num_type), obj, thd, heap_grown);
+	  return gc_fixup_moved_obj(thd, alloci, obj, hp);
     }
   default:
     fprintf(stderr, "gc_move: bad tag obj=%p obj.tag=%d\n", (object) obj,

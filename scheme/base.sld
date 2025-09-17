@@ -1480,10 +1480,13 @@
     " return_closcall1(data, k, Cyc_is_complex(z)); "
     "(void *data, object ptr, object z)"
     " return Cyc_is_complex(z); ")
-  (define rational? number?)
+  (define-c rational?
+	"(void *data, int argc, closure _, object k, object r)"
+	" return_closcall1(data, k, Cyc_is_rational(r)); "
+	"(void *data, int argc, closure _, object r)"
+	" return Cyc_is_rational(r); ")
   ;; Stub, doesn't do much now because rationals are not supported
-  (define (rationalize x y)
-    (/ x y))
+  (define (rationalize x y) (/ x y))
   (define (max first . rest) (foldl (lambda (old new) (if (> old new) old new)) first rest))
   (define (min first . rest) (foldl (lambda (old new) (if (< old new) old new)) first rest))
   ; Implementations of gcd and lcm using Euclid's algorithm

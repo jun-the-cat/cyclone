@@ -595,6 +595,7 @@ object Cyc_is_list(object lst);
 #define Cyc_is_null(o) (make_boolean(o == NULL))
 //TODO: convert all of these to macros (if it makes sense, most should), and remove them from runtime.c:
 object Cyc_is_number(object o);
+object Cyc_is_rational(object o);
 object Cyc_is_real(object o);
 object Cyc_is_integer(object o);
 #define Cyc_is_fixnum(o) (make_boolean(obj_is_int(o)))
