@@ -16,10 +16,10 @@
   (include-c-header "<unistd.h>")
   (include-c-header "<errno.h>")
   (include-c-header "<poll.h>")
-  (import (scheme base) (scheme cxr))
+  (import (scheme base) (scheme cxr) (srfi 60))
   (export
       make-client-socket make-server-socket socket?
-      socket-accept server-socket-ready?
+      socket-accept socket-ready?
       socket-send socket-recv
       socket-shutdown socket-close
       socket-input-port
@@ -41,6 +41,20 @@
   (inline
     socket->fd)
   (begin
+    (define-syntax make-const
+      (er-macro-transformer
+        (lambda (expr rename compare)
+          (let* ((base-str (symbol->string (cadr expr)))
+                 (fsym (string->symbol (string-append "%" base-str "%")))
+                 (vsym (string->symbol (string-append "*" base-str "*")))
+                 (const-str (caddr expr)))
+           `(begin
+             (define ,vsym (,fsym))
+             (define-c ,fsym
+               "(void *data, int argc, closure _, object k)"
+               ,(string-append 
+                 "return_closcall1(data, k, obj_int2obj(" const-str ")); ")))))))
+	
     (define *socket-object-type* '%socket-object-type%)
     (define (socket->fd obj) (cdr obj))
     (define (socket? obj)
@@ -129,6 +143,8 @@
             (set! socktype (cadr opts))
             (when (> (length opts) 2)
               (set! proto (caddr opts)))))
+		(when (not (string? service))
+		  (error "Service should be a string, received" service))
         (let ((sock-fd (%make-server-socket service family socktype proto)))
           (cons *socket-object-type* sock-fd))))
 
@@ -185,16 +201,25 @@
         }
         return_closcall1(data, k, obj_int2obj(sockfd)); ")
 
-    (define (server-socket-ready? sock)
+	(make-const socket-read?      "POLLIN")
+	(make-const socket-write?     "POLLOUT")
+	(make-const socket-exception? "POLLPRI")
+	(make-const socket-error?     "POLLERR")
+	
+    (define (socket-ready? sock . flags)
       (when (not (socket? sock))
         (error "Expected socket but received" sock))
 
-      (%server-socket-ready? sock))
+	  (let ((flags (foldl logior 0 (if (null? flags)
+									   (list *socket-read?* *socket-write?*)
+									   flags))))
+		(%socket-ready? (socket->fd sock) flags)))
 
-    (define-c %server-socket-ready?
-      "(void *data, int argc, closure _, object k, object sockfd)"
-      "int serv_fd = obj_obj2int(sockfd);
-       struct pollfd fds = { serv_fd, POLLIN, 0 };
+    (define-c %socket-ready?
+      "(void *data, int argc, closure _, object k, object sockfd, object flags)"
+      "int serv_fd    = obj_obj2int(sockfd);
+       int poll_flags = obj_obj2int(flags);
+       struct pollfd fds = { serv_fd, poll_flags, 0 };
        if (poll(&fds, 1, 0) == 0) {
            return_closcall1(data, k, boolean_f);
        } else {
@@ -372,20 +397,6 @@
     (define-c bit-unset
       "(void *data, int argc, closure _, object k, object n1, object n2)"
       " return_closcall1(data, k, Cyc_bit_unset(data, n1, n2));")
-
-    (define-syntax make-const
-      (er-macro-transformer
-        (lambda (expr rename compare)
-          (let* ((base-str (symbol->string (cadr expr)))
-                 (fsym (string->symbol (string-append "%" base-str "%")))
-                 (vsym (string->symbol (string-append "*" base-str "*")))
-                 (const-str (caddr expr)))
-           `(begin
-             (define ,vsym (,fsym))
-             (define-c ,fsym
-               "(void *data, int argc, closure _, object k)"
-               ,(string-append 
-                 "return_closcall1(data, k, obj_int2obj(" const-str ")); ")))))))
 
     (make-const af-unspec      "AF_UNSPEC"     )
     (make-const af-inet        "AF_INET"       )
