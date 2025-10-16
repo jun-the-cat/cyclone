@@ -922,6 +922,25 @@ char *gc_copy_obj(object dest, char *obj, gc_thread_data * thd)
       ((bignum_type *) hp)->bn.dp = ((bignum_type *) obj)->bn.dp;
       return (char *)hp;
     }
+  case rational_num_tag:{
+	  rational_num_type *hp = dest;
+	  mark(hp) = thd->gc_alloc_color;
+	  type_of(hp) = rational_num_tag;
+
+	  // Numerator copy.
+      ((rational_num_type *) hp)->fraction.numerator.used = ((rational_num_type *) obj)->fraction.numerator.used;
+      ((rational_num_type *) hp)->fraction.numerator.alloc = ((rational_num_type *) obj)->fraction.numerator.alloc;
+      ((rational_num_type *) hp)->fraction.numerator.sign = ((rational_num_type *) obj)->fraction.numerator.sign;
+      ((rational_num_type *) hp)->fraction.numerator.dp = ((rational_num_type *) obj)->fraction.numerator.dp;
+
+	  // Denominator copy.
+      ((rational_num_type *) hp)->fraction.denominator.used = ((rational_num_type *) obj)->fraction.denominator.used;
+      ((rational_num_type *) hp)->fraction.denominator.alloc = ((rational_num_type *) obj)->fraction.denominator.alloc;
+      ((rational_num_type *) hp)->fraction.denominator.sign = ((rational_num_type *) obj)->fraction.denominator.sign;
+      ((rational_num_type *) hp)->fraction.denominator.dp = ((rational_num_type *) obj)->fraction.denominator.dp;
+
+	  return (char *)hp;
+  }
   case cvar_tag:{
       cvar_type *hp = dest;
       mark(hp) = thd->gc_alloc_color;

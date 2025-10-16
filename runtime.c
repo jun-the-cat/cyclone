@@ -1899,7 +1899,23 @@ int Cyc_bignum_cmp(bn_cmp_type type, object x, int tx, object y, int ty)
        (type == CYC_BN_LTE && cmp < MP_GT));
 }
 
-#define declare_num_cmp(FUNC, FUNC_OP, FUNC_FAST_OP, FUNC_APPLY, OP, BN_CMP) \
+object
+reduce_rational(void *data, object n)
+{
+	if (type_of(n) == rational_num_tag
+		&& !rational_is_fraction(&(rational_num_value(n)))) {
+		alloc_bignum(data, numerator);
+		if (mp_copy(&(rational_num_value(n).numerator), &(numerator->bn)) != MP_OKAY) {
+			return n;
+		}
+		
+		return numerator;
+	}
+
+	return n;
+}
+
+#define declare_num_cmp(FUNC, FUNC_OP, FUNC_FAST_OP, FUNC_APPLY, OP, BN_CMP, RAT_CMP) \
 int FUNC_OP(void *data, object x, object y) { \
     int result = 0, \
         tx = (obj_is_int(x) ? -1 : type_of(x)), \
@@ -1932,6 +1948,24 @@ int FUNC_OP(void *data, object x, object y) { \
       result = Cyc_bignum_cmp(BN_CMP, x, tx, y, ty); \
     } else if (tx == double_tag && ty == bignum_tag) { \
       result = (double_value(x)) OP mp_get_double(&bignum_value(y)); \
+	} else if (tx == rational_num_tag) { \
+	  if (ty == rational_num_tag) {					\
+		result = rational_compare(RAT_CMP, &rational_num_value(x), &rational_num_value(y)); \
+	  } else if (ty == bignum_tag) { \
+		result = rational_compare_mp(RAT_CMP, &rational_num_value(x), &bignum_value(y), 0); \
+	  } else if (ty == double_tag) { \
+		result = rational_compare_double(RAT_CMP, &rational_num_value(x), double_value(y), 0); \
+	  } else if (ty == -1) { \
+		result = rational_compare_integer(RAT_CMP, &rational_num_value(x), obj_obj2int(y), 0); \
+	  }	\
+	} else if (ty == rational_num_tag) { \
+	  if (tx == bignum_tag) { \
+		result = rational_compare_mp(RAT_CMP, &rational_num_value(y), &bignum_value(x), 1); \
+	  } else if (tx == double_tag) { \
+		result = rational_compare_double(RAT_CMP, &rational_num_value(y), double_value(x), 1); \
+	  } else if (tx == -1) { \
+		result = rational_compare_integer(RAT_CMP, &rational_num_value(y), obj_obj2int(x), 1); \
+	  }	\
     } else if (tx == complex_num_tag && ty == complex_num_tag) { \
       if (BN_CMP == CYC_BN_EQ) { \
         result = (complex_num_value(x)) == (complex_num_value(y)); \
@@ -2025,6 +2059,31 @@ object FUNC_FAST_OP(void *data, object x, object y) { \
       return Cyc_bignum_cmp(BN_CMP, x, tx, y, ty) ? boolean_t : boolean_f; \
     } else if (tx == double_tag && ty == bignum_tag) { \
       return (double_value(x)) OP mp_get_double(&bignum_value(y)) ? boolean_t : boolean_f; \
+	} else if (tx == rational_num_tag) { \
+	  if (ty == rational_num_tag) {					\
+	    return rational_compare(RAT_CMP, &rational_num_value(x), &rational_num_value(y)) \
+			? boolean_t : boolean_f; \
+	  } else if (ty == bignum_tag) { \
+		return rational_compare_mp(RAT_CMP, &rational_num_value(x), &bignum_value(y), 0) \
+			? boolean_t : boolean_f;\
+	  } else if (ty == double_tag) { \
+		return rational_compare_double(RAT_CMP, &rational_num_value(x), double_value(y), 0) \
+			? boolean_t : boolean_f; \
+	  } else if (ty == -1) { \
+		return rational_compare_integer(RAT_CMP, &rational_num_value(x), obj_obj2int(y), 0) \
+			? boolean_t : boolean_f; \
+	  }	\
+	} else if (ty == rational_num_tag) { \
+	  if (tx == bignum_tag) { \
+		return rational_compare_mp(RAT_CMP, &rational_num_value(y), &bignum_value(x), 1) \
+			? boolean_t : boolean_f;\
+	  } else if (tx == double_tag) { \
+		return rational_compare_double(RAT_CMP, &rational_num_value(y), double_value(x), 1) \
+			? boolean_t : boolean_f; \
+	  } else if (tx == -1) { \
+		return rational_compare_integer(RAT_CMP, &rational_num_value(y), obj_obj2int(x), 1) \
+			? boolean_t : boolean_f; \
+	  }	\
     } else if (tx == complex_num_tag && ty == complex_num_tag) { \
       if (BN_CMP == CYC_BN_EQ) { \
         return ((complex_num_value(x)) == (complex_num_value(y))) ? boolean_t : boolean_f; \
@@ -2062,15 +2121,15 @@ bad_arg_type_error: \
 }
 
 declare_num_cmp(Cyc_num_eq, Cyc_num_eq_op, Cyc_num_fast_eq_op, dispatch_num_eq,
-                ==, CYC_BN_EQ);
+                ==, CYC_BN_EQ, RATIONAL_EQ);
 declare_num_cmp(Cyc_num_gt, Cyc_num_gt_op, Cyc_num_fast_gt_op, dispatch_num_gt,
-                >, CYC_BN_GT);
+                >, CYC_BN_GT, RATIONAL_GT);
 declare_num_cmp(Cyc_num_lt, Cyc_num_lt_op, Cyc_num_fast_lt_op, dispatch_num_lt,
-                <, CYC_BN_LT);
+                <, CYC_BN_LT, RATIONAL_LT);
 declare_num_cmp(Cyc_num_gte, Cyc_num_gte_op, Cyc_num_fast_gte_op,
-                dispatch_num_gte, >=, CYC_BN_GTE);
+                dispatch_num_gte, >=, CYC_BN_GTE, RATIONAL_GTE);
 declare_num_cmp(Cyc_num_lte, Cyc_num_lte_op, Cyc_num_fast_lte_op,
-                dispatch_num_lte, <=, CYC_BN_LTE);
+                dispatch_num_lte, <=, CYC_BN_LTE, RATIONAL_LTE);
 
 object Cyc_is_number(object o)
 {
@@ -2084,19 +2143,13 @@ object Cyc_is_number(object o)
   return boolean_f;
 }
 
-object Cyc_is_rational(object o)
-{
-	if ((o != NULL) && (obj_is_int(o) || (!is_value_type(o)
-										  && (type_of(o) == integer_tag
-											  || type_of(o) == bignum_tag
-											  || type_of(o) == rational_num_tag))))
-		return boolean_t;
-	return boolean_f;
-}
-
 object Cyc_is_real(object o)
 {
-  if ((o != NULL) && (obj_is_int(o) || (!is_value_type(o) && (type_of(o) == integer_tag || type_of(o) == bignum_tag || type_of(o) == double_tag || (type_of(o) == complex_num_tag && cimag(complex_num_value(o)) == 0.0)))))    // Per R7RS
+  if ((o != NULL) && (obj_is_int(o) || (!is_value_type(o) && (type_of(o) == integer_tag
+															  || type_of(o) == bignum_tag
+															  || type_of(o) == double_tag
+															  || type_of(o) == rational_num_tag
+															  || (type_of(o) == complex_num_tag && cimag(complex_num_value(o)) == 0.0)))))    // Per R7RS
     return boolean_t;
   return boolean_f;
 }
@@ -6567,6 +6620,7 @@ int gc_minor(void *data, object low_limit, object high_limit, closure cont,
     case cvar_tag:
     case c_opaque_tag:
     case complex_num_tag:
+	case rational_num_tag:
       break;
       // These types are not heap-allocated
     case eof_tag:
@@ -8873,6 +8927,15 @@ void Cyc_get_ratio(void *data, object cont, object n, int numerator)
     } else {
       d = 1.0;
     }
+  } else if (type_of(n) == rational_num_tag) {
+	  alloc_bignum(data, result);
+	  if (numerator) {
+		  result->bn = rational_num_value(n).numerator;
+	  }
+	  else {
+		  result->bn = rational_num_value(n).denominator;
+	  }
+	  return_closcall1(data, cont, result);
   } else {
     Cyc_rt_raise2(data, "Unable to convert to ratio", n);
   }
@@ -8908,7 +8971,7 @@ void Cyc_exact(void *data, object cont, object z)
     i = obj_obj2int(z);
   } else if (type_of(z) == integer_tag) {
     i = (int)round(((integer_type *) z)->value);
-  } else if (type_of(z) == bignum_tag) {
+  } else if (type_of(z) == bignum_tag || type_of(z) == rational_num_tag) {
     return_closcall1(data, cont, z);
   } else if (type_of(z) == complex_num_tag) {
     double dreal = round(creal(((complex_num_type *) z)->value));
@@ -8943,7 +9006,7 @@ object Cyc_exact_no_cps(void *data, object ptr, object z)
     i = obj_obj2int(z);
   } else if (type_of(z) == integer_tag) {
     i = (int)round(((integer_type *) z)->value);
-  } else if (type_of(z) == bignum_tag) {
+  } else if (type_of(z) == bignum_tag || type_of(z) == rational_num_tag) {
     return z;
   } else if (type_of(z) == complex_num_tag) {
     double dreal = round(creal(((complex_num_type *) z)->value));

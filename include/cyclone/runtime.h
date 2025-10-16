@@ -397,6 +397,8 @@ int Cyc_have_mstreams();
     i = (int)OP(((integer_type *)z)->value); \
   } else if (type_of(z) == bignum_tag) { \
     return_closcall1(data, cont, z); \
+  } else if (type_of(z) == rational_num_tag) { \
+    i = OP(rational_to_double(&rational_num_value(z))); \
   } else if (type_of(z) == double_tag) { \
     make_double(d, OP(((double_type *)z)->value)); \
     return_closcall1(data, cont, &d); \
@@ -417,6 +419,8 @@ int Cyc_have_mstreams();
     i = (int)OP(((integer_type *)z)->value); \
   } else if (type_of(z) == bignum_tag) { \
     return z; \
+  } else if (type_of(z) == rational_num_tag) { \
+    assign_double(ptr, OP(rational_to_double(&rational_num_value(z)))); \
   } else if (type_of(z) == double_tag) { \
     assign_double(ptr, OP(((double_type *)z)->value)); \
     return ptr; \
@@ -437,6 +441,8 @@ int Cyc_have_mstreams();
     unboxed = OP(((integer_type *)z)->value); \
   } else if (type_of(z) == bignum_tag) { \
     unboxed = OP(mp_get_double(&bignum_value(z))); \
+  } else if (type_of(z) == rational_num_tag) { \
+    unboxed = OP(rational_to_double(&rational_num_value(z))); \
   } else { \
     unboxed = OP(((double_type *)z)->value); \
   } \
@@ -455,6 +461,8 @@ int Cyc_have_mstreams();
     d.value = OP(((integer_type *)z)->value); \
   } else if (type_of(z) == bignum_tag) { \
     d.value = OP(mp_get_double(&bignum_value(z))); \
+  } else if (type_of(z) == rational_num_tag) { \
+    d.value = OP(rational_to_double(&rational_num_value(z))); \
   } else { \
     d.value = OP(((double_type *)z)->value); \
   } \
@@ -472,6 +480,8 @@ int Cyc_have_mstreams();
     unboxed = OP(((integer_type *)z)->value); \
   } else if (type_of(z) == bignum_tag) { \
     unboxed = OP(mp_get_double(&bignum_value(z))); \
+  } else if (type_of(z) == rational_num_tag) { \
+    unboxed = OP(rational_to_double(&rational_num_value(z))); \
   } else if (type_of(z) == complex_num_tag) { \
     double complex unboxed = CPLX_OP(complex_num_value(z)); \
     assign_complex_num(ptr, unboxed); \
@@ -494,6 +504,8 @@ int Cyc_have_mstreams();
     d.value = OP(((integer_type *)z)->value); \
   } else if (type_of(z) == bignum_tag) { \
     d.value = OP(mp_get_double(&bignum_value(z))); \
+  } else if (type_of(z) == rational_num_tag) { \
+    d.value = OP(rational_to_double(&rational_num_value(z))); \
   } else if (type_of(z) == complex_num_tag) { \
     complex_num_type cn; \
     double complex unboxed = CPLX_OP(complex_num_value(z)); \
@@ -580,6 +592,13 @@ void Cyc_make_rectangular(void *data, object k, object r, object i);
 double MRG32k3a(double seed);
 /**@}*/
 /**
+ * \defgroup boolean_ops Internal boolean operators for working between Scheme and C booleans.
+ */
+/**@{*/
+
+#define Cyc_bool_or(scm_bool, c_bool) ((scm_bool) == boolean_t ? (boolean_t) : make_boolean(c_bool))
+
+/**
  * \defgroup prim_eq Equality and type predicates
  */
 /**@{*/
@@ -595,15 +614,14 @@ object Cyc_is_list(object lst);
 #define Cyc_is_null(o) (make_boolean(o == NULL))
 //TODO: convert all of these to macros (if it makes sense, most should), and remove them from runtime.c:
 object Cyc_is_number(object o);
-object Cyc_is_rational(object o);
 object Cyc_is_real(object o);
 object Cyc_is_integer(object o);
 #define Cyc_is_fixnum(o) (make_boolean(obj_is_int(o)))
-//object Cyc_is_fixnum(object o);
 #define Cyc_is_double(o)     (make_boolean(is_object_type(o) && ((list) o)->tag == double_tag))
 #define Cyc_is_bignum(o)     (make_boolean(is_object_type(o) && ((list) o)->tag == bignum_tag))
 //object Cyc_is_complex(object o);
-#define Cyc_is_complex(o)     (make_boolean(is_object_type(o) && ((list) o)->tag == complex_num_tag))
+#define Cyc_is_complex(o)    (make_boolean(is_object_type(o) && ((list) o)->tag == complex_num_tag))
+#define Cyc_is_rational(o)   (make_boolean(is_object_type(o) && ((list) o)->tag == rational_num_tag))
 //object Cyc_is_bignum(object o);
 //object Cyc_is_vector(object o);
 //object Cyc_is_bytevector(object o);

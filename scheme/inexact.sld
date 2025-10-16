@@ -104,6 +104,8 @@
        result = csqrt(((integer_type *)z)->value);
      } else if (type_of(z) == bignum_tag) {
        result = csqrt(mp_get_double(&bignum_value(z)));
+     } else if (type_of(z) == rational_num_tag) {
+       result = csqrt(rational_to_double(&rational_num_value(z)));
      } else if (type_of(z) == complex_num_tag) {
        result = csqrt(complex_num_value(z));
      } else {
@@ -130,6 +132,8 @@
        result = csqrt(((integer_type *)z)->value);
      } else if (type_of(z) == bignum_tag) {
        result = csqrt(mp_get_double(&bignum_value(z)));
+     } else if (type_of(z) == rational_num_tag) {
+       result = csqrt(rational_to_double(&rational_num_value(z)));
      } else if (type_of(z) == complex_num_tag) {
        result = csqrt(complex_num_value(z));
      } else {

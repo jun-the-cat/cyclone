@@ -266,6 +266,7 @@ bootstrap : icyc libs
 	cp $(HEADER_DIR)/types.h $(BOOTSTRAP_DIR)/include/cyclone
 	cp $(HEADER_DIR)/runtime-main.h $(BOOTSTRAP_DIR)/include/cyclone
 	cp $(HEADER_DIR)/runtime.h $(BOOTSTRAP_DIR)/include/cyclone
+	cp $(HEADER_DIR)/rational.h $(BOOTSTRAP_DIR)/include/cyclone
 	cp $(HEADER_DIR)/ck_ht_hash.h $(BOOTSTRAP_DIR)/include/cyclone
 	cp $(HEADER_DIR)/hashset.h $(BOOTSTRAP_DIR)/include/cyclone
 	cp $(HEADER_DIR)/bignum.h $(BOOTSTRAP_DIR)/include/cyclone
@@ -279,6 +280,7 @@ bootstrap : icyc libs
 	cp ffi.c $(BOOTSTRAP_DIR)
 	cp mstreams.c $(BOOTSTRAP_DIR)
 	cp hashset.c $(BOOTSTRAP_DIR)
+	cp rational.c $(BOOTSTRAP_DIR)
 	cp gc.c $(BOOTSTRAP_DIR)
 	cp scheme/base.c $(BOOTSTRAP_DIR)/scheme
 	cp scheme/case-lambda.c $(BOOTSTRAP_DIR)/scheme
